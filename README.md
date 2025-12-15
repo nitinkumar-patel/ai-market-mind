@@ -1,6 +1,6 @@
 ## MarketMind – Agentic Market Research Assistant
 
-**MarketMind** is a FastAPI + LangGraph backend that turns an LLM into an **autonomous market research agent** for brands and topics relevant to marketing and communications (e.g., a Stagwell-style agency workflow).
+**MarketMind** is a FastAPI + LangGraph backend that turns an LLM into an **autonomous market research agent** for brands and topics relevant to marketing and communications agencies.
 
 Given a topic like **"Trends in GenAI for Marketing 2025"**, MarketMind:
 
@@ -18,7 +18,9 @@ The `/api/v1/research` endpoint streams progress as **Server-Sent Events (SSE)**
 
 - **Framework**: `FastAPI` (async)
 - **Orchestration**: `LangGraph` (explicit graph with loops)
-- **LLM & Embeddings**: OpenAI (`gpt-4o-mini` + embeddings)
+- **LLM & Embeddings**: 
+  - **OpenAI** (`gpt-4o-mini` + `text-embedding-3-small`) - default
+  - **Ollama** (local, free) - supports any model like `llama3.1`, `mistral`, `phi3`, etc.
 - **Vector Store**: Postgres with `pgvector` (Dockerized)
 - **Tools**: Tavily Search API via `httpx` (pluggable)
 - **Guardrails**:
@@ -64,23 +66,26 @@ README.md
 
 ## Running the Stack (Docker Compose)
 
-### 1. Set environment variables
+### Option A: Using OpenAI (Default)
+
+#### 1. Set environment variables
 
 Create a `.env` file in the project root (same level as `docker-compose.yml`):
 
 ```bash
 OPENAI_API_KEY=sk-...
 TAVILY_API_KEY=tvly-...    # optional but recommended for real web search
+LLM_PROVIDER=openai
 ```
 
 > Without `TAVILY_API_KEY`, the agent still runs, but the tool node will return a stub message instead of live search results (useful for quick local demos).
 
-### 2. Start Postgres + App
+#### 2. Start services
 
 From the project root:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 This will:
@@ -93,6 +98,78 @@ The app will automatically:
 
 - Initialize the `pgvector` extension
 - Create a simple `research_chunks` table with an IVFFLAT index
+
+---
+
+### Option B: Using Ollama (Free, Local)
+
+Ollama runs models locally, so you don't need an OpenAI API key or quota. This is perfect for demos and development.
+
+#### 1. Set environment variables
+
+Create a `.env` file:
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=llama3.1    # or mistral, phi3, etc.
+TAVILY_API_KEY=tvly-...  # optional
+```
+
+#### 2. Start all services (including Ollama)
+
+```bash
+docker compose up --build
+```
+
+This starts:
+- `marketmind-ollama` (Ollama server)
+- `marketmind-db` (Postgres + pgvector)
+- `marketmind-app` (FastAPI + LangGraph)
+
+#### 3. Install a model in Ollama (first time only)
+
+Once containers are running, pull a model into the Ollama container:
+
+```bash
+docker compose exec ollama ollama pull llama3.1
+```
+
+**Recommended models:**
+- `llama3.1` - Good balance of quality and speed (~4.7GB)
+- `mistral` - Smaller, faster (~4.1GB)
+- `phi3` - Very compact, fast (~2.3GB)
+- `llama3.2` - Latest, larger (~2GB for 1B variant)
+
+**Note:** Models are stored in a Docker volume (`ollama_models`), so they persist across container restarts.
+
+#### 4. Verify Ollama is working
+
+Test the Ollama service directly:
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+You should see your installed models listed.
+
+#### 5. Use the API
+
+The FastAPI app will automatically use Ollama when `LLM_PROVIDER=ollama`. Test with:
+
+```bash
+curl -N \
+  -H "Accept: text/event-stream" \
+  -H "Content-Type: application/json" \
+  -X POST \
+  -d '{"topic": "Trends in GenAI for Marketing 2025", "depth": "detailed"}' \
+  http://localhost:8000/api/v1/research
+```
+
+**Switching between providers:** Just change `LLM_PROVIDER` in `.env` and restart:
+
+```bash
+docker compose restart app
+```
 
 ---
 
@@ -201,7 +278,7 @@ You can also run the app directly on your machine:
 1. Ensure you have Postgres running with `pgvector` and matching credentials, or run:
 
    ```bash
-   docker-compose up db
+   docker compose up db
    ```
 
 2. Create and activate a virtualenv, then install deps:
@@ -212,9 +289,26 @@ You can also run the app directly on your machine:
 
 3. Set env vars:
 
+   **For OpenAI:**
    ```bash
    export OPENAI_API_KEY=sk-...
    export TAVILY_API_KEY=tvly-...
+   export LLM_PROVIDER=openai
+   ```
+
+   **For Ollama (local):**
+   ```bash
+   export LLM_PROVIDER=ollama
+   export OLLAMA_BASE_URL=http://localhost:11434
+   export OLLAMA_MODEL=llama3.1
+   export TAVILY_API_KEY=tvly-...
+   ```
+   
+   Then start Ollama locally:
+   ```bash
+   brew install ollama
+   ollama serve
+   ollama pull llama3.1
    ```
 
 4. Start FastAPI:
@@ -224,26 +318,3 @@ You can also run the app directly on your machine:
    ```
 
 API will be at `http://localhost:8000`.
-
----
-
-## How to Talk About This Project in an Interview
-
-- **One-liner**:  
-  “I built **MarketMind**, an *agentic market research backend* that plans, searches, summarizes, and stores marketing insights in Postgres/pgvector, exposing the whole workflow as an async FastAPI API with SSE.”
-
-- **JD keywords to hit**:
-  - **Agentic AI**: LangGraph graph with planner → tools → ingest → writer → reviewer loop.
-  - **RAG + Vector Stores**: pgvector memory, distance threshold, reuse of past research to reduce cost/latency.
-  - **FastAPI & Async**: Async endpoints, async LLM/tool calls, SSE streaming.
-  - **Guardrails/Evals**: Reviewer node that validates outputs and can trigger rewrites.
-
-- **“Why this is relevant to Stagwell / marketing agencies”**:
-  - It mimics how an insights team does work: plan queries, scan sources, distill insights, store them as reusable knowledge, and deliver polished executive summaries for brand/strategy conversations.
-
----
-
-## Sharing on GitHub
-
-> **MarketMind – Agentic Market Research Assistant** (FastAPI + LangGraph + Postgres/pgvector). GitHub: `[https://github.com/nitinkumar-patel/ai-market-mind]`
-

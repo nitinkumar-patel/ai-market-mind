@@ -150,7 +150,7 @@ async def writer_node(state: AgentState) -> AgentState:
 
     system = SystemMessage(
         content=(
-            "You are a senior marketing strategist at a global agency (like Stagwell). "
+            "You are a senior marketing strategist at a global marketing agency. "
             "You write structured, executive-ready research summaries."
         )
     )
