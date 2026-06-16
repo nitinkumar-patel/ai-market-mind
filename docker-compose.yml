@@ -9,6 +9,10 @@ version: "3.9"
 #   POSTGRES_PASSWORD, OPENAI_API_KEY, TAVILY_API_KEY
 # ─────────────────────────────────────────────────────────────────────────────
 
+networks:
+  app_net:
+    driver: bridge
+
 services:
 
   # ── Postgres + pgvector ───────────────────────────────────────────────────
@@ -16,6 +20,8 @@ services:
     image: ankane/pgvector:latest
     container_name: marketmind-db
     restart: always
+    networks:
+      - app_net
     environment:
       POSTGRES_DB:       ${POSTGRES_DB:-marketmind}
       POSTGRES_USER:     ${POSTGRES_USER:-marketmind}
@@ -34,6 +40,8 @@ services:
     container_name: marketmind-ollama
     profiles: ["ollama"]
     restart: unless-stopped
+    networks:
+      - app_net
     volumes:
       - ollama_models:/root/.ollama
     # First boot: docker compose exec ollama ollama pull llama3.1
@@ -45,6 +53,8 @@ services:
       dockerfile: Dockerfile
     container_name: marketmind-backend
     restart: always
+    networks:
+      - app_net
     environment:
       POSTGRES_HOST:     db
       POSTGRES_PORT:     5432
@@ -60,7 +70,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Not exposed externally — all traffic enters through nginx
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # ── Next.js frontend ──────────────────────────────────────────────────────
   frontend:
@@ -71,11 +86,19 @@ services:
         API_BACKEND_URL: http://backend:8000
     container_name: marketmind-frontend
     restart: always
+    networks:
+      - app_net
     environment:
       NODE_ENV: production
     depends_on:
-      - backend
-    # Not exposed externally — nginx routes to port 3000 internally
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   # ── Nginx — single public entry point ────────────────────────────────────
   #   /api/*  → backend:8000   (SSE buffering disabled)
@@ -84,13 +107,17 @@ services:
     image: nginx:1.27-alpine
     container_name: marketmind-nginx
     restart: always
+    networks:
+      - app_net
     ports:
       - "${HOST_PORT:-80}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
 
 volumes:
   pgdata:
