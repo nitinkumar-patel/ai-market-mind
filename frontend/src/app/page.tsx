@@ -17,7 +17,7 @@ export default function HomePage() {
       <ResearchForm onSubmit={run} isLoading={isStreaming} />
 
       {isError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2.5">
+        <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger flex items-start gap-2.5">
           <svg className="w-4 h-4 mt-0.5 shrink-0" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
             <path d="M8 5v4M8 10.5v.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

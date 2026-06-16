@@ -11,6 +11,16 @@ interface Props {
   onReset: () => void;
 }
 
+// Strip any residual LLM section-header lines that leaked through the parser.
+const SECTION_HEADER_RE = /^\*{0,2}\s*(executive\s+summary|key\s+findings)\s*\*{0,2}:?\s*$/im;
+function cleanContent(text: string): string {
+  return text
+    .split('\n')
+    .filter(l => !SECTION_HEADER_RE.test(l.trim()))
+    .join('\n')
+    .trim();
+}
+
 function CopyIcon() {
   return (
     <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 14 14" fill="none">
@@ -22,7 +32,7 @@ function CopyIcon() {
 
 function CheckIcon() {
   return (
-    <svg className="w-3.5 h-3.5 shrink-0 text-emerald-500" viewBox="0 0 14 14" fill="none">
+    <svg className="w-3.5 h-3.5 shrink-0 text-success" viewBox="0 0 14 14" fill="none">
       <path d="M2 7l4 4 6-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -50,8 +60,12 @@ function ExternalLinkIcon() {
 export function ResultsCard({ topic, result, onReset }: Props) {
   const [copied, setCopied] = useState(false);
 
+  const summary  = cleanContent(result.executive_summary);
+  const findings = result.key_findings
+    .map(cleanContent)
+    .filter(f => f.length > 0);
+
   async function copyReport() {
-    const findings = result.key_findings.map((f, i) => `${i + 1}. ${f}`).join('\n');
     const text = [
       `MARKET RESEARCH REPORT: ${topic}`,
       `Generated: ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`,
@@ -59,11 +73,11 @@ export function ResultsCard({ topic, result, onReset }: Props) {
       '',
       'EXECUTIVE SUMMARY',
       '─'.repeat(40),
-      result.executive_summary,
+      summary,
       '',
       'KEY FINDINGS',
       '─'.repeat(40),
-      findings,
+      findings.map((f, i) => `${i + 1}. ${f}`).join('\n'),
     ].join('\n');
 
     await navigator.clipboard.writeText(text);
@@ -74,28 +88,29 @@ export function ResultsCard({ topic, result, onReset }: Props) {
   const dateStr = new Date().toLocaleDateString('en-US', { dateStyle: 'long' });
 
   return (
-    <div className="rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-fade-up print-card">
-      {/* ── Report header (dark) ── */}
-      <div className="bg-navy px-6 py-5">
+    <div className="rounded-2xl border border-stroke shadow-sm overflow-hidden animate-fade-up print-card">
+
+      {/* ── Report header ── */}
+      <div className="bg-bg-raised px-6 py-5 border-b border-stroke">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[.14em] text-blue-400 mb-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[.14em] text-accent font-mono mb-1.5">
               Market Research Report
             </p>
-            <h2 className="text-xl font-bold text-white leading-snug break-words">
+            <h2 className="text-xl font-bold font-display text-ink-primary leading-snug break-words">
               {topic}
             </h2>
-            <p className="text-xs text-slate-400 mt-1.5">
+            <p className="text-xs text-ink-tertiary font-mono mt-1.5">
               {dateStr}&nbsp;·&nbsp;
               {result.reused_from_memory ? 'Served from memory cache' : 'Live web research'}
             </p>
           </div>
 
           <span
-            className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 font-mono ${
               result.reused_from_memory
-                ? 'bg-amber-400/10 text-amber-300 border border-amber-400/20'
-                : 'bg-emerald-400/10 text-emerald-300 border border-emerald-400/20'
+                ? 'bg-accent-gold/10 text-accent-gold border border-accent-gold/20'
+                : 'bg-success/10 text-success border border-success/20'
             }`}
           >
             {result.reused_from_memory ? '⚡ Cached' : '🔍 Fresh'}
@@ -104,36 +119,34 @@ export function ResultsCard({ topic, result, onReset }: Props) {
       </div>
 
       {/* ── Report body ── */}
-      <div className="bg-white px-6 py-6 space-y-7">
-        {/* Executive Summary */}
-        <section>
-          <h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-blue-600 mb-3">
-            Executive Summary
-          </h3>
-          <div className="prose-report">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {result.executive_summary}
-            </ReactMarkdown>
-          </div>
-        </section>
+      <div className="bg-bg-surface px-6 py-7 space-y-8">
 
-        {result.key_findings.length > 0 && (
+        {/* Executive Summary */}
+        {summary && (
+          <section>
+            <SectionLabel>Executive Summary</SectionLabel>
+            <div className="mt-4 pl-4 border-l-2 border-accent/30">
+              <div className="prose-report">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{summary}</ReactMarkdown>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Key Findings */}
+        {findings.length > 0 && (
           <>
-            <hr className="border-slate-100" />
+            {summary && <Divider />}
             <section>
-              <h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-blue-600 mb-3">
-                Key Findings
-              </h3>
-              <ol className="space-y-3">
-                {result.key_findings.map((finding, i) => (
-                  <li key={i} className="flex gap-3 items-start">
-                    <span className="mt-0.5 w-5 h-5 shrink-0 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold">
+              <SectionLabel>Key Findings</SectionLabel>
+              <ol className="mt-4 space-y-4">
+                {findings.map((finding, i) => (
+                  <li key={i} className="flex gap-3.5 items-start group">
+                    <span className="mt-0.5 w-5 h-5 shrink-0 flex items-center justify-center rounded-full bg-accent/10 text-accent text-[10px] font-bold font-mono ring-1 ring-accent/20 group-hover:bg-accent/20 transition-colors">
                       {i + 1}
                     </span>
-                    <div className="prose-report">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {finding}
-                      </ReactMarkdown>
+                    <div className="prose-report flex-1 min-w-0 pt-px">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{finding}</ReactMarkdown>
                     </div>
                   </li>
                 ))}
@@ -142,21 +155,20 @@ export function ResultsCard({ topic, result, onReset }: Props) {
           </>
         )}
 
+        {/* Citations */}
         {result.citations.length > 0 && (
           <>
-            <hr className="border-slate-100" />
+            <Divider />
             <section>
-              <h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-blue-600 mb-3">
-                Sources
-              </h3>
-              <ul className="space-y-2">
+              <SectionLabel>Sources</SectionLabel>
+              <ul className="mt-4 space-y-2">
                 {result.citations.map((c, i) => (
                   <li key={i}>
                     <a
                       href={c.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1.5"
+                      className="text-sm text-accent hover:text-accent-light transition-colors inline-flex items-center gap-1.5"
                     >
                       <ExternalLinkIcon />
                       {c.title || c.source_url}
@@ -170,10 +182,10 @@ export function ResultsCard({ topic, result, onReset }: Props) {
       </div>
 
       {/* ── Action bar ── */}
-      <div className="no-print bg-slate-50 border-t border-slate-100 px-6 py-3.5 flex items-center gap-2 flex-wrap">
+      <div className="no-print bg-bg-raised border-t border-stroke px-6 py-3.5 flex items-center gap-2 flex-wrap">
         <button
           onClick={copyReport}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 transition"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary hover:text-ink-primary bg-bg-surface hover:bg-bg-raised border border-stroke rounded-lg px-3 py-1.5 transition"
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
           {copied ? 'Copied!' : 'Copy Report'}
@@ -181,7 +193,7 @@ export function ResultsCard({ topic, result, onReset }: Props) {
 
         <button
           onClick={() => window.print()}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 transition"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary hover:text-ink-primary bg-bg-surface hover:bg-bg-raised border border-stroke rounded-lg px-3 py-1.5 transition"
         >
           <PrintIcon />
           Print
@@ -189,11 +201,26 @@ export function ResultsCard({ topic, result, onReset }: Props) {
 
         <button
           onClick={onReset}
-          className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-3 py-1.5 transition"
+          className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-ink-tertiary hover:text-ink-primary hover:bg-bg-surface rounded-lg px-3 py-1.5 transition"
         >
           ← New Research
         </button>
       </div>
     </div>
   );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-accent font-mono">
+        {children}
+      </h3>
+      <div className="flex-1 h-px bg-stroke" />
+    </div>
+  );
+}
+
+function Divider() {
+  return <hr className="border-stroke/60" />;
 }

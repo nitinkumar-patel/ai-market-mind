@@ -5,13 +5,35 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'serif'],
+        body:    ['var(--font-body)',    'sans-serif'],
+        sans:    ['var(--font-body)',    'system-ui', 'sans-serif'],
+        mono:    ['var(--font-mono)',    'monospace'],
       },
       colors: {
-        navy: {
-          DEFAULT: '#0f172a',
-          light: '#1e293b',
+        bg: {
+          base:    'var(--bg-base)',
+          surface: 'var(--bg-surface)',
+          raised:  'var(--bg-raised)',
         },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          light:   'var(--accent-light)',
+          subtle:  'var(--accent-subtle)',
+          gold:    'var(--accent-2)',
+        },
+        ink: {
+          primary:   'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          tertiary:  'var(--text-tertiary)',
+        },
+        stroke: {
+          DEFAULT: 'var(--border-default)',
+          subtle:  'var(--border-subtle)',
+        },
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger:  'var(--danger)',
       },
       keyframes: {
         'fade-up': {
@@ -19,7 +41,7 @@ const config: Config = {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'pulse-dot': {
-          '0%, 100%': { opacity: '1',  transform: 'scale(1)' },
+          '0%, 100%': { opacity: '1',   transform: 'scale(1)' },
           '50%':      { opacity: '0.4', transform: 'scale(0.65)' },
         },
       },

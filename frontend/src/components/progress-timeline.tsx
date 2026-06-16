@@ -46,36 +46,36 @@ function StepRow({
           className={`
             w-5 h-5 rounded-full flex items-center justify-center border-2 shrink-0 transition-all duration-300
             ${isDone
-              ? 'bg-emerald-500 border-emerald-500 text-white'
+              ? 'bg-success border-success text-accent-subtle'
               : isActive
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-slate-200 bg-white'}
+              ? 'border-accent bg-bg-raised'
+              : 'border-stroke bg-bg-surface'}
           `}
         >
           {isDone ? (
             <CheckIcon />
           ) : isActive ? (
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse-dot" />
+            <div className="w-2 h-2 rounded-full bg-accent animate-pulse-dot" />
           ) : (
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+            <div className="w-1.5 h-1.5 rounded-full bg-ink-tertiary" />
           )}
         </div>
 
         {!isLast && (
-          <div className={`w-px flex-1 my-1 min-h-[12px] transition-colors duration-300 ${isDone ? 'bg-emerald-200' : 'bg-slate-100'}`} />
+          <div className={`w-px flex-1 my-1 min-h-[12px] transition-colors duration-300 ${isDone ? 'bg-success/30' : 'bg-stroke'}`} />
         )}
       </div>
 
       {/* Content */}
       <div className={`flex-1 min-w-0 ${isLast ? 'pb-0' : 'pb-3'}`}>
         <div
-          className={`text-xs font-semibold transition-colors duration-200 ${
-            isDone ? 'text-emerald-700' : isActive ? 'text-blue-600' : 'text-slate-400'
+          className={`text-xs font-semibold font-mono transition-colors duration-200 ${
+            isDone ? 'text-success' : isActive ? 'text-accent' : 'text-ink-tertiary'
           }`}
         >
           {STEP_LABELS[step.step] ?? step.step}
         </div>
-        <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">{step.message}</div>
+        <div className="text-xs text-ink-tertiary mt-0.5 leading-relaxed">{step.message}</div>
       </div>
     </div>
   );
@@ -83,23 +83,23 @@ function StepRow({
 
 export function ProgressTimeline({ steps, isDone, topic }: Props) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 animate-fade-up">
+    <div className="bg-bg-surface rounded-2xl border border-stroke shadow-sm p-6 animate-fade-up">
       {/* Header */}
       <div className="flex items-start gap-3 mb-5">
         <div className="mt-0.5 shrink-0">
           {isDone ? (
-            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+            <div className="w-5 h-5 rounded-full bg-success flex items-center justify-center text-accent-subtle">
               <CheckIcon />
             </div>
           ) : (
-            <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-stroke border-t-accent rounded-full animate-spin" />
           )}
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-slate-900">
+          <h3 className="text-sm font-semibold text-ink-primary">
             {isDone ? 'Research Complete' : 'Running Research Agent…'}
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5 truncate">
+          <p className="text-xs text-ink-tertiary font-mono mt-0.5 truncate">
             &ldquo;{topic}&rdquo;
           </p>
         </div>

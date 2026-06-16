@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional, TypedDict
+import re
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 import httpx
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -136,6 +137,50 @@ async def ingest_node(state: AgentState) -> AgentState:
     return {**state, "memory_context": memory_context, "reused_from_memory": False}
 
 
+# Matches section header lines produced by the LLM in various formats:
+# "Executive Summary", **Executive Summary**, Executive Summary:, etc.
+_EXEC_RE = re.compile(r'^\*{0,2}\s*executive\s+summary\s*\*{0,2}:?\s*$', re.IGNORECASE)
+_KEY_RE  = re.compile(r'^\*{0,2}\s*key\s+findings\s*\*{0,2}:?\s*$', re.IGNORECASE)
+
+
+def _parse_writer_output(content: str) -> Tuple[str, List[str]]:
+    """
+    Robustly split LLM output into (executive_summary, key_findings).
+
+    The LLM may label sections with headers like '**Executive Summary**',
+    'Executive Summary:', 'Key Findings:', etc.  This function strips those
+    labels and returns clean content for each field.
+    """
+    lines = content.splitlines()
+
+    # Find the boundary where "Key Findings" section starts
+    kf_idx = next((i for i, l in enumerate(lines) if _KEY_RE.match(l.strip())), None)
+
+    if kf_idx is not None:
+        summary_lines = [l for l in lines[:kf_idx] if not _EXEC_RE.match(l.strip())]
+        findings_raw  = lines[kf_idx + 1:]
+    else:
+        # Fallback: split on first blank line, ignore exec header in first block
+        parts = content.split("\n\n", 1)
+        summary_lines = [l for l in parts[0].splitlines() if not _EXEC_RE.match(l.strip())]
+        findings_raw  = parts[1].splitlines() if len(parts) > 1 else []
+
+    executive_summary = "\n".join(summary_lines).strip()
+
+    # Extract individual findings; strip bullet/number markers and skip stray headers
+    key_lines: List[str] = []
+    for line in findings_raw:
+        s = line.strip()
+        if not s or _EXEC_RE.match(s) or _KEY_RE.match(s):
+            continue
+        s = re.sub(r'^[-•*]\s+', '', s)
+        s = re.sub(r'^\d+[.)]\s+', '', s)
+        if s:
+            key_lines.append(s)
+
+    return executive_summary, key_lines
+
+
 async def writer_node(state: AgentState) -> AgentState:
     topic = state["topic"]
     depth = state.get("depth", ResearchDepth.detailed)
@@ -163,25 +208,23 @@ async def writer_node(state: AgentState) -> AgentState:
             f"- Implications for brand strategy and media\n"
             f"- Opportunities and risks for marketers\n\n"
             f"{depth_instructions}\n"
-            f"Return sections: Executive Summary paragraph + bullet-point key findings."
+            f"Return EXACTLY two sections:\n"
+            f"Executive Summary\n"
+            f"<one paragraph summary here>\n\n"
+            f"Key Findings\n"
+            f"- <finding 1>\n"
+            f"- <finding 2>\n"
+            f"(and so on)"
         )
     )
     resp = await chat_model.ainvoke([system, human])
 
-    content = resp.content
-    # Simple split: first paragraph vs bullets
-    parts = content.split("\n\n", 1)
-    executive_summary = parts[0].strip()
-    key_lines: List[str] = []
-    if len(parts) > 1:
-        for line in parts[1].splitlines():
-            if line.strip():
-                key_lines.append(line.strip("-• ").strip())
+    executive_summary, key_lines = _parse_writer_output(resp.content)
 
     draft = ResearchResult(
         executive_summary=executive_summary,
         key_findings=key_lines,
-        citations=[],  # could be mapped from search_results in a richer version
+        citations=[],
         reused_from_memory=reused,
     )
 

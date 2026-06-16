@@ -2,36 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-base:        #081735;
+  --bg-surface:     #0F1F45;
+  --bg-raised:      #132A5A;
+  --accent:         #7DD3FC;
+  --accent-light:   #BAE6FD;
+  --accent-subtle:  #0A1A30;
+  --accent-2:       #FBBF24;
+  --text-primary:   #F4F4F6;
+  --text-secondary: #A3B4D1;
+  --text-tertiary:  #5A7099;
+  --border-default: #1A3060;
+  --border-subtle:  #0F1F45;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger:  #EF4444;
+}
+
 @layer base {
   html {
+    background-color: var(--bg-base);
+    scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-secondary);
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.032;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+  }
+
+  ::selection {
+    background-color: var(--accent);
+    color: var(--accent-subtle);
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-base); }
+  ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 }
 
-/* Markdown renderer styles for report sections */
+/* Markdown renderer — dark theme */
 .prose-report {
-  @apply text-sm leading-7 text-slate-700;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
 }
-.prose-report p { @apply mb-2 last:mb-0; }
-.prose-report strong { @apply font-semibold text-slate-900; }
-.prose-report em { @apply italic; }
+.prose-report p { margin-bottom: 0.5rem; }
+.prose-report p:last-child { margin-bottom: 0; }
+.prose-report strong { font-weight: 600; color: var(--text-primary); }
+.prose-report em { font-style: italic; }
 .prose-report h1,
 .prose-report h2,
-.prose-report h3 { @apply font-semibold text-slate-900 mt-3 mb-1; }
-.prose-report h1 { @apply text-base; }
-.prose-report h2 { @apply text-sm; }
-.prose-report h3 { @apply text-sm; }
-.prose-report ul { @apply list-disc pl-4 space-y-1; }
-.prose-report ol { @apply list-decimal pl-4 space-y-1; }
-.prose-report li { @apply leading-relaxed; }
-.prose-report a { @apply text-blue-600 underline underline-offset-2 hover:text-blue-800; }
-.prose-report code { @apply bg-slate-100 text-slate-800 text-xs font-mono px-1 py-0.5 rounded; }
-.prose-report blockquote { @apply border-l-2 border-slate-300 pl-3 text-slate-500 italic; }
+.prose-report h3 { font-weight: 600; color: var(--text-primary); margin-top: 0.75rem; margin-bottom: 0.25rem; }
+.prose-report h1 { font-size: 1rem; }
+.prose-report h2 { font-size: 0.9rem; }
+.prose-report h3 { font-size: 0.875rem; }
+.prose-report ul { list-style: disc; padding-left: 1rem; }
+.prose-report ol { list-style: decimal; padding-left: 1rem; }
+.prose-report li { line-height: 1.65; margin-bottom: 0.25rem; }
+.prose-report li::marker { color: var(--accent); }
+.prose-report a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; transition: color 150ms ease; }
+.prose-report a:hover { color: var(--accent-light); }
+.prose-report code {
+  background: var(--bg-raised);
+  color: var(--accent);
+  font-size: 0.75rem;
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  border: 1px solid var(--border-default);
+}
+.prose-report blockquote {
+  border-left: 2px solid var(--accent);
+  padding-left: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
 
 @media print {
   header,
   .no-print { display: none !important; }
   main { padding: 0 !important; }
-  .print-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+  .print-card { box-shadow: none !important; border: 1px solid var(--border-default) !important; }
 }
