@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Markdown renderer styles for report sections */
+.prose-report {
+  @apply text-sm leading-7 text-slate-700;
+}
+.prose-report p { @apply mb-2 last:mb-0; }
+.prose-report strong { @apply font-semibold text-slate-900; }
+.prose-report em { @apply italic; }
+.prose-report h1,
+.prose-report h2,
+.prose-report h3 { @apply font-semibold text-slate-900 mt-3 mb-1; }
+.prose-report h1 { @apply text-base; }
+.prose-report h2 { @apply text-sm; }
+.prose-report h3 { @apply text-sm; }
+.prose-report ul { @apply list-disc pl-4 space-y-1; }
+.prose-report ol { @apply list-decimal pl-4 space-y-1; }
+.prose-report li { @apply leading-relaxed; }
+.prose-report a { @apply text-blue-600 underline underline-offset-2 hover:text-blue-800; }
+.prose-report code { @apply bg-slate-100 text-slate-800 text-xs font-mono px-1 py-0.5 rounded; }
+.prose-report blockquote { @apply border-l-2 border-slate-300 pl-3 text-slate-500 italic; }
+
+@media print {
+  header,
+  .no-print { display: none !important; }
+  main { padding: 0 !important; }
+  .print-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+}

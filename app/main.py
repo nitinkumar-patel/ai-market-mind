@@ -1,11 +1,15 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from app.api.routes import router as api_router
 from app.core.config import settings
 from app.db import ensure_schema
+
+_UI_HTML = Path(__file__).parent / "static" / "index.html"
 
 
 @asynccontextmanager
@@ -39,6 +43,11 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def serve_ui() -> str:
+    return _UI_HTML.read_text()
 
 
 @app.get("/health")

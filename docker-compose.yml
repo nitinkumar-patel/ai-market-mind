@@ -1,59 +1,97 @@
 version: "3.9"
 
-services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: marketmind-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_models:/root/.ollama
-    restart: unless-stopped
+# ─── MarketMind — production-ready stack ────────────────────────────────────
+#
+# Default (OpenAI):   docker compose up --build
+# With Ollama:        docker compose --profile ollama up --build
+#
+# Required env (copy env-default → .env and fill in):
+#   POSTGRES_PASSWORD, OPENAI_API_KEY, TAVILY_API_KEY
+# ─────────────────────────────────────────────────────────────────────────────
 
+services:
+
+  # ── Postgres + pgvector ───────────────────────────────────────────────────
   db:
     image: ankane/pgvector:latest
     container_name: marketmind-db
+    restart: always
     environment:
-      POSTGRES_DB: marketmind
-      POSTGRES_USER: marketmind
-      POSTGRES_PASSWORD: marketmind
-    ports:
-      - "5433:5432"
+      POSTGRES_DB:       ${POSTGRES_DB:-marketmind}
+      POSTGRES_USER:     ${POSTGRES_USER:-marketmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U marketmind -d marketmind"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-marketmind} -d ${POSTGRES_DB:-marketmind}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  app:
+  # ── Ollama — local LLM (opt-in: docker compose --profile ollama up) ───────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: marketmind-ollama
+    profiles: ["ollama"]
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    # First boot: docker compose exec ollama ollama pull llama3.1
+
+  # ── FastAPI + LangGraph backend ───────────────────────────────────────────
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: marketmind-app
+    container_name: marketmind-backend
+    restart: always
     environment:
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: marketmind
-      POSTGRES_USER: marketmind
-      POSTGRES_PASSWORD: marketmind
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
-      # Use an allowed logical environment value for Settings.environment
-      ENVIRONMENT: prod
-      # LLM provider selection: "openai" or "ollama"
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-      # When running with the Ollama Docker service, point to that URL
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      POSTGRES_HOST:     db
+      POSTGRES_PORT:     5432
+      POSTGRES_DB:       ${POSTGRES_DB:-marketmind}
+      POSTGRES_USER:     ${POSTGRES_USER:-marketmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      OPENAI_API_KEY:    ${OPENAI_API_KEY:-}
+      TAVILY_API_KEY:    ${TAVILY_API_KEY:-}
+      ENVIRONMENT:       ${ENVIRONMENT:-prod}
+      LLM_PROVIDER:      ${LLM_PROVIDER:-openai}
+      OLLAMA_BASE_URL:   ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL:      ${OLLAMA_MODEL:-llama3.1}
     depends_on:
       db:
         condition: service_healthy
-      ollama:
-        condition: service_started
+    # Not exposed externally — all traffic enters through nginx
+
+  # ── Next.js frontend ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_BACKEND_URL: http://backend:8000
+    container_name: marketmind-frontend
+    restart: always
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - backend
+    # Not exposed externally — nginx routes to port 3000 internally
+
+  # ── Nginx — single public entry point ────────────────────────────────────
+  #   /api/*  → backend:8000   (SSE buffering disabled)
+  #   /*      → frontend:3000
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: marketmind-nginx
+    restart: always
     ports:
-      - "8000:8000"
+      - "${HOST_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
 
 volumes:
+  pgdata:
   ollama_models:
-
-
